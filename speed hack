@@ -1,0 +1,139 @@
+-- Ekran arayüzünü (GUI) oluşturma
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local SliderBar = Instance.new("Frame")
+local SliderButton = Instance.new("TextButton")
+local SpeedInput = Instance.new("TextBox")
+local SpeedLabel = Instance.new("TextLabel")
+
+-- GUI Özellikleri ve Tasarımı
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Name = "CustomSpeedHackUI"
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+MainFrame.Size = UDim2.new(0, 250, 0, 140)
+MainFrame.Active = true
+MainFrame.Draggable = true -- Ekranda sürüklenebilir yapar
+
+Title.Parent = MainFrame
+Title.Text = "HIZ AYARLAYICI (0 - 300)"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 16
+
+-- Sayaç / Girdi Kutusu (Tıklayıp sayı yazılabilen yer)
+SpeedInput.Parent = MainFrame
+SpeedInput.PlaceholderText = "Hız Yaz..."
+SpeedInput.Text = ""
+SpeedInput.Position = UDim2.new(0.1, 0, 0.3, 0)
+SpeedInput.Size = UDim2.new(0.4, 0, 0, 30)
+SpeedInput.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+SpeedInput.TextColor3 = Color3.fromRGB(0, 255, 0)
+SpeedInput.Font = Enum.Font.SourceSans
+SpeedInput.TextSize = 18
+
+SpeedLabel.Parent = MainFrame
+SpeedLabel.Text = "Mevcut: Değer"
+SpeedLabel.Position = UDim2.new(0.55, 0, 0.3, 0)
+SpeedLabel.Size = UDim2.new(0.4, 0, 0, 30)
+SpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedLabel.Font = Enum.Font.SourceSans
+SpeedLabel.TextSize = 16
+
+-- Kaydırma Çubuğu (Slider)
+SliderBar.Parent = MainFrame
+SliderBar.Position = UDim2.new(0.1, 0, 0.65, 0)
+SliderBar.Size = UDim2.new(0.8, 0, 0, 10)
+SliderBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+
+SliderButton.Parent = SliderBar
+SliderButton.Size = UDim2.new(0, 20, 0, 20)
+SliderButton.Position = UDim2.new(0, 0, -0.5, 0)
+SliderButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+SliderButton.Text = ""
+
+-- Karakter Hız Mantığı ve Hafıza Sistemleri
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local MAX_SPEED = 300
+
+-- Oyunun orijinal başlangıç hızını kaydetme
+local defaultSpeed = 16
+if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+    defaultSpeed = LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed
+end
+
+-- Hızı sürekli aktif tutan döngü (Anti-Reset)
+local currentTargetSpeed = defaultSpeed
+
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid.WalkSpeed ~= currentTargetSpeed then
+                humanoid.WalkSpeed = currentTargetSpeed
+            end
+        end
+    end
+end)
+
+-- Arayüzü Güncelleme Fonksiyonu
+local function updateSpeed(newSpeed)
+    newSpeed = math.clamp(math.floor(newSpeed), 0, MAX_SPEED)
+    currentTargetSpeed = newSpeed
+    SpeedLabel.Text = "Hız: " .. tostring(newSpeed)
+    
+    -- Slider buton konumunu güncelleme
+    local percent = newSpeed / MAX_SPEED
+    SliderButton.Position = UDim2.new(math.clamp(percent, 0, 0.92), 0, -0.5, 0)
+end
+
+-- İlk açılış değerleri
+updateSpeed(defaultSpeed)
+
+-- 1. Sayaç Kutusuna Yazı Yazarak Değiştirme
+SpeedInput.FocusLost:Connect(function(enterPressed)
+    local numericValue = tonumber(SpeedInput.Text)
+    if numericValue then
+        updateSpeed(numericValue)
+    else
+        SpeedInput.Text = tostring(currentTargetSpeed)
+    end
+end)
+
+-- 2. Kaydırma Çubuğu (Slider) Sürükleme Mantığı
+local UserInputService = game:GetService("UserInputService")
+local dragging = false
+
+SliderButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local mousePos = input.Position.X
+        local barLeftPos = SliderBar.AbsolutePosition.X
+        local barWidth = SliderBar.AbsoluteSize.X
+        
+        local relativeX = mousePos - barLeftPos
+        local percentage = math.clamp(relativeX / barWidth, 0, 1)
+        
+        local targetSpeed = percentage * MAX_SPEED
+        updateSpeed(targetSpeed)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
